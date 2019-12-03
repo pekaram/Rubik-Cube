@@ -168,17 +168,13 @@ public class RubikCube : MonoBehaviour
         var turns = Mathf.RoundToInt(this.rotationLayer.transform.eulerAngles.z / 90);
 
         this.ResetRotationLayer();
-
-        this.VisualizeLayerRotation((int)this.SelectedIndex.Value.x, 90 * (turns));
         
         for (var i=0; i < 4 - turns;i++)
         {
-            this.RotateLayer((int)this.SelectedIndex.Value.x);
+            this.RotateLayer((int)this.SelectedIndex.Value.x, true);
         }
 
         this.OnRotationDone();
-
-        this.ResetRotationLayer();
     }
 
     private void OnVerticalRotationStarted(int CubeIndex)
@@ -220,7 +216,6 @@ public class RubikCube : MonoBehaviour
 
         var midPoint = (this.cubeIndexToPosition[this.indexToLayer.Count-1][CubeIndex + indexToLayer.Count -1] - this.cubeIndexToPosition[0][CubeIndex]) / 2;
         this.rotationLayer.transform.RotateAround(midPoint, Vector3.up, degree);
-
     }
 
     public void VisualizeRotateVertically(int CubeIndex, float degree)
@@ -248,16 +243,13 @@ public class RubikCube : MonoBehaviour
         }
 
         this.ResetRotationLayer(); 
-        this.VisualizeRotateVertically(index, (4-turns) *90);
+      
         for (var i =0; i<4-turns; i++)
         {
-            RotateVerticallyClockWise(index);
+            RotateVerticallyClockWise(index, true);
         }
 
         this.OnRotationDone();
-
-        this.adoptedCubesToOriginalParent.Clear();
-        this.ResetRotationLayer();
     }
 
     private void OnRotationDone()
@@ -372,16 +364,12 @@ public class RubikCube : MonoBehaviour
 
         this.ResetRotationLayer();
 
-        this.VisualizeRotateHorizontally(index, (4-turns) * -90);
         for (var i =0; i<4-turns; i++)
         {
-            RotateHorizontally(index);
+            RotateHorizontally(index, true);
         }
 
         this.OnRotationDone();
-        this.adoptedCubesToOriginalParent.Clear();
-
-        this.ResetRotationLayer();
     }
 
     public void OnCubeClicked(Cube cube, CubeFace side)
@@ -419,13 +407,8 @@ public class RubikCube : MonoBehaviour
                 var cubeIndexToInsertTo = ((indexToLayer.Count * indexToLayer.Count) - indexToLayer.Count) - (layerIndex * indexToLayer.Count) + selectedCubeIndex;
                 
                 cubeToRemove.RotateVertically(ignoreRotateVisuals);
-                
-                var location = cubeIndexToPosition[layerToInsertTo][cubeIndexToInsertTo];
-                cubeToRemove.transform.SetParent(this.indexToLayer[layerToInsertTo].transform);
-                cubeToRemove.transform.localPosition = location;
-                cubeToRemove.name = "Cube " + layerToInsertTo + " " + cubeIndexToInsertTo;
-              
-                this.indexToLayer[layerToInsertTo].LayerCubes[cubeIndexToInsertTo] = cubeToRemove;
+
+                this.RepositionCube(cubeToRemove, layerToInsertTo, cubeIndexToInsertTo);
             }
         }
     }
@@ -448,14 +431,19 @@ public class RubikCube : MonoBehaviour
                 
                 cubeToRemove.RotateHorizontally(ignoreRotateVisuals);
 
-                var location = cubeIndexToPosition[layerToInsertTo][cubeIndexToInsertTo];
-                cubeToRemove.transform.SetParent(this.indexToLayer[layerToInsertTo].transform);
-                cubeToRemove.transform.localPosition = location;
-                cubeToRemove.name = "Cube " + layerToInsertTo + " " + cubeIndexToInsertTo;
-
-                this.indexToLayer[layerToInsertTo].LayerCubes[cubeIndexToInsertTo] = cubeToRemove;
+                this.RepositionCube(cubeToRemove, layerToInsertTo, cubeIndexToInsertTo);
             }
         }
+    }
+
+    private void RepositionCube(Cube cubeToRemove, int layerToInsertTo, int cubeIndexToInsertTo)
+    {
+        var location = cubeIndexToPosition[layerToInsertTo][cubeIndexToInsertTo];
+        cubeToRemove.transform.SetParent(this.indexToLayer[layerToInsertTo].transform);
+        cubeToRemove.transform.localPosition = location;
+        cubeToRemove.name = "Cube " + layerToInsertTo + " " + cubeIndexToInsertTo;
+
+        this.indexToLayer[layerToInsertTo].LayerCubes[cubeIndexToInsertTo] = cubeToRemove;
     }
 
     public void RotateLayer(int selectedLayerIndex, bool ignoreRotateVisuals = false)
@@ -475,14 +463,10 @@ public class RubikCube : MonoBehaviour
             var columnIndex = indexToLayer.Count - 1 - rowNumber;
             var rowIndex = i -(rowNumber * width);
             var position = rowIndex * width + columnIndex;
-            var location = cubeIndexToPosition[layerToInsertTo][position];
-
-            cubeToRemove.transform.SetParent(this.indexToLayer[layerToInsertTo].transform);
-            cubeToRemove.transform.localPosition = location;
+            
             cubeToRemove.RotateInLayer(ignoreRotateVisuals);
-            cubeToRemove.name = "Cube " + layerToInsertTo + " " + position;
 
-            this.indexToLayer[selectedLayerIndex].LayerCubes[position] = cubeToRemove;
+            this.RepositionCube(cubeToRemove, layerToInsertTo, position);
         }    
     }
 }
