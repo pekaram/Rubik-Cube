@@ -22,21 +22,24 @@ public class RubikCube : MonoBehaviour
 
     private IDictionary<int, IDictionary<int, Vector3>> cubeIndexToPosition = new Dictionary<int, IDictionary<int, Vector3>>();
 
-    public Vector2? SelectedIndex { get; set; }
+    public HashSet<Cube> VerticalEdges { get; private set; }
 
-    public CubeSide? selctedFace { get; set; }
+    public Vector2? SelectedIndex { get; private set; }
+
+    public CubeSide? selctedFace { get; private set; }
 
     private CubesLayer rotationLayer;
 
     private Quaternion originalRotation;
+    private Vector3 rotationLayerPosition;
 
-    private Vector3 pos;
+    public Vector3 CubeCenter { get; private set; }
 
-    public Vector3 CubeCenter { get; set; }
+    public Cube SelectedCube { get; private set; }
 
     Dictionary<Cube, CubesLayer> adoptedCubesToOriginalParent = new Dictionary<Cube, CubesLayer>();
 
-    private void Start()
+    private void Awake()
     {
         this.CreateCube();
 
@@ -44,6 +47,15 @@ public class RubikCube : MonoBehaviour
 
         this.InitializeRotationLayer();
         this.Randomize();
+    }
+
+    private void Start()
+    {
+        this.VerticalEdges = new HashSet<Cube>();
+        foreach(var layer in this.indexToLayer.Values)
+        {
+            this.VerticalEdges.UnionWith(layer.GetVerticalEdges());
+        }
     }
 
     private void Randomize()
@@ -90,7 +102,7 @@ public class RubikCube : MonoBehaviour
     {
         this.rotationLayer = this.cubesLayerFactory.GetBlankLayer();
         originalRotation = this.rotationLayer.transform.rotation;
-        pos = this.rotationLayer.transform.position;
+        rotationLayerPosition = this.rotationLayer.transform.position;
         this.rotationLayer.name = "Temp Rotation Layer";
 
         this.CubeCenter = (this.cubeIndexToPosition
@@ -129,7 +141,8 @@ public class RubikCube : MonoBehaviour
                 { CubeSide.Right, 3 },
                 { CubeSide.Top, 5},
                 { CubeSide.Bottom, 6 }
-            });
+            },
+            this);
 
             layer.name = "layer" + i;
             layer.transform.SetParent(this.transform);
@@ -348,7 +361,7 @@ public class RubikCube : MonoBehaviour
     private void ResetRotationLayer()
     {
         this.rotationLayer.transform.rotation = this.originalRotation;
-        this.rotationLayer.transform.position = this.pos;
+        this.rotationLayer.transform.position = this.rotationLayerPosition;
     }
 
     public void ResetSelectedIndex()
@@ -374,6 +387,8 @@ public class RubikCube : MonoBehaviour
 
     public void OnCubeClicked(Cube cube, CubeFace side)
     {
+        this.SelectedCube = cube;
+
         for (var i = 0; 0 < indexToLayer.Count; i++)
         {
             for(var j =0; j<indexToLayer[i].LayerCubes.Count ;j++)

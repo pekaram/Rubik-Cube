@@ -7,7 +7,15 @@ public enum InteractionType
     VerticalRotation,
     HorizontalRotation,
     LayerRotation,
-    CameraRotation,
+    HorizontalCameraRotation,
+    VerticalCameraRotation
+}
+
+public enum PullDirection
+{
+    Horizontal,
+    Vertical,
+    None,
 }
 
 public class PlayerInteractionHandler : MonoBehaviour
@@ -15,8 +23,6 @@ public class PlayerInteractionHandler : MonoBehaviour
     [SerializeField]
     private RubikCube rubikCube;
     
-    private Vector2? StartPos;
-
     private float rotationThreshold = 0.2f;
 
     [SerializeField]
@@ -24,72 +30,151 @@ public class PlayerInteractionHandler : MonoBehaviour
 
     private InteractionType? activeInteraction;
 
+    private Dictionary<Vector2, CubeSide> layerRotationHandles = new Dictionary<Vector2, CubeSide>();
+
+    private PullDirection pullDirection;
+
     private void Update()
     {
+        this.HandlePullDirection();
+
         this.HandleMouse();
     }
 
     private void HandleMousePress()
     {
         if (Input.GetKey(KeyCode.Mouse0))
-        {
-            if (rubikCube.SelectedIndex == null)
-            {
-                this.activeInteraction = InteractionType.CameraRotation;
-                this.mainCamera.transform.LookAt(this.rubikCube.transform);
-                this.mainCamera.transform.RotateAround(this.rubikCube.CubeCenter, Vector3.up, 40 * Input.GetAxis("Mouse X"));
-                return;
-            }
-
+        {    
             if (activeInteraction == null)
             {
-                var verticalCubeRotation = Mathf.Abs(Input.GetAxis("Mouse Y")) > rotationThreshold;
+                if (rubikCube.SelectedIndex == null)
+                {
+                    switch(pullDirection)
+                    {
+                        case PullDirection.Horizontal:
+                            activeInteraction = InteractionType.HorizontalCameraRotation;
+                            return;
 
-                if (verticalCubeRotation && Input.GetKey(KeyCode.LeftShift))
+                        case PullDirection.Vertical:
+                            activeInteraction = InteractionType.VerticalCameraRotation;
+                            return;
+                    }
+
+                    return;
+                }
+
+                var isLayerHandle =
+                    this.rubikCube.VerticalEdges.Contains(this.rubikCube.SelectedCube) &&
+                    (this.rubikCube.selctedFace == CubeSide.Left || this.rubikCube.selctedFace == CubeSide.Right);
+
+                if (pullDirection == PullDirection.Vertical && isLayerHandle)
                 {
                     this.activeInteraction = InteractionType.LayerRotation;
                 }
-                else if (verticalCubeRotation)
+                else if (pullDirection == PullDirection.Vertical)
                 {
                     this.activeInteraction = InteractionType.VerticalRotation;
                 }
-
-                else if (Mathf.Abs(Input.GetAxis("Mouse X")) > rotationThreshold)
+                else if (pullDirection == PullDirection.Horizontal)
                 {
-                    this.activeInteraction = InteractionType.HorizontalRotation; ;
+                    this.activeInteraction = InteractionType.HorizontalRotation;
                 }
             }
 
-            if (activeInteraction == InteractionType.VerticalRotation)
-            {
-                var rowNumber = (int)Mathf.Floor(this.rubikCube.SelectedIndex.Value.y / this.rubikCube.Size);
-                var index = (int)this.rubikCube.SelectedIndex.Value.y - (rowNumber * this.rubikCube.Size);
-                var inverted = this.rubikCube.SelectedIndex.Value.x != 0;
-                this.rubikCube.VisualizeRotateVertically(index, Input.GetAxis("Mouse Y") * (inverted ? 20 : -20));
-            }
-            else if (activeInteraction == InteractionType.HorizontalRotation)
-            {
-                var index = (int)Mathf.Floor(this.rubikCube.SelectedIndex.Value.y / this.rubikCube.Size) * this.rubikCube.Size;
-                this.rubikCube.VisualizeRotateHorizontally(index, Input.GetAxis("Mouse X") * -20);
-            }
-            else if (activeInteraction == InteractionType.LayerRotation)
-            {
-                this.rubikCube.VisualizeLayerRotation((int)this.rubikCube.SelectedIndex.Value.x, Input.GetAxis("Mouse Y") * -20);
-            }
+            this.Handle();
+        }
+    }
+
+    private void HandleVerticalRotation()
+    {
+        var rowNumber = (int)Mathf.Floor(this.rubikCube.SelectedIndex.Value.y / this.rubikCube.Size);
+        var index = (int)this.rubikCube.SelectedIndex.Value.y - (rowNumber * this.rubikCube.Size);
+        var inverted = this.rubikCube.selctedFace == CubeSide.Back ? true : false;
+        this.rubikCube.VisualizeRotateVertically(index, Input.GetAxis("Mouse Y") * (inverted ? 20 : -20));
+    }
+
+    private void HandleHorizontalRotation()
+    {
+        var index = (int)Mathf.Floor(this.rubikCube.SelectedIndex.Value.y / this.rubikCube.Size) * this.rubikCube.Size;
+        this.rubikCube.VisualizeRotateHorizontally(index, Input.GetAxis("Mouse X") * -20);
+    }
+
+    private void HandleLayerRotation()
+    {
+        var inverted = this.rubikCube.selctedFace == CubeSide.Right ? true : false;
+        this.rubikCube.VisualizeLayerRotation((int)this.rubikCube.SelectedIndex.Value.x, Input.GetAxis("Mouse Y") * (inverted ? 20 : -20));
+    }
+
+    private void Handle()
+    {
+        switch(activeInteraction)
+        {
+            case InteractionType.VerticalRotation:
+                this.HandleVerticalRotation();
+                return;
+
+            case InteractionType.HorizontalRotation:
+                this.HandleHorizontalRotation();
+                return;
+
+            case InteractionType.LayerRotation:
+                this.HandleLayerRotation();
+                return;
+
+            case InteractionType.VerticalCameraRotation:
+                this.RotateCamera();
+                return;
+
+            case InteractionType.HorizontalCameraRotation:
+                this.RotateCamera();
+                return;
+        }
+    }
+
+    private void RotateCamera()
+    {
+        var vector = default(Vector3);
+        var axis = string.Empty;
+        if(this.activeInteraction == InteractionType.HorizontalCameraRotation)
+        {
+            vector = Vector3.up;
+            axis = "Mouse X";
+        }
+        else
+        {
+            vector = this.mainCamera.transform.right;
+            axis = "Mouse Y";
         }
 
+        this.mainCamera.transform.RotateAround(this.rubikCube.CubeCenter, vector, 40 * Input.GetAxis(axis));
+    }
+
+    private void HandlePullDirection()
+    {
+        var isVerticalPull = Mathf.Abs(Input.GetAxis("Mouse Y")) > rotationThreshold;
+        var isHorizontalPull = Mathf.Abs(Input.GetAxis("Mouse X")) > rotationThreshold;
+        if(isVerticalPull)
+        {
+            this.pullDirection = PullDirection.Vertical;
+        }
+        else if(isHorizontalPull)
+        {
+            this.pullDirection = PullDirection.Horizontal;
+        }
+        else
+        {
+            this.pullDirection = PullDirection.None;
+        }
     }
 
     private void HandleMouse()
     {
         this.HandleMousePress();
         this.HandleMouseReleased();
-           
     }   
 
     private void HandleMouseReleased()
     {
-
         if (Input.GetKeyUp(KeyCode.Mouse0))
         {
             if (this.activeInteraction == null)

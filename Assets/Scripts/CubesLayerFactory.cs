@@ -18,7 +18,7 @@ public class CubesLayerFactory : MonoBehaviour
 
     private const float MarginBetweenCubes = 0.2f;
    
-    public CubesLayer CreateLayer(int width, LayerType layerType, float margin, Dictionary<CubeSide, int> sideToColorIndex)
+    public CubesLayer CreateLayer(int width, LayerType layerType, float margin, Dictionary<CubeSide, int> sideToColorIndex, RubikCube parentCube)
     {
         var layer = Instantiate(layerPrefab);
 
@@ -74,6 +74,7 @@ public class CubesLayerFactory : MonoBehaviour
             layer.LayerCubes.Add(cube);
         }
 
+        layer.ParentCube = parentCube;
         return layer;
     }
 
